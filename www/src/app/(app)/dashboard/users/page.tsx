@@ -28,13 +28,11 @@ export default function UsersPage() {
 
   return (
     <div className="p-6  mx-auto">
-      {/* Header and Controls */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground mb-4">
           Users Management
         </h1>
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          {/* Search */}
           <div className="relative w-full sm:w-96">
             <Icon
               icon="solar:magnifier-bold-duotone"
@@ -49,7 +47,6 @@ export default function UsersPage() {
             />
           </div>
 
-          {/* Sort Controls */}
           <div className="flex gap-3 w-full sm:w-auto">
             <select
               value={sort}
@@ -79,7 +76,6 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {/* Users Grid */}
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array(8)
@@ -178,7 +174,6 @@ export default function UsersPage() {
                   </div>
                 </div>
 
-                {/* Action Buttons */}
                 <div className="flex gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button className="flex-1 p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium">
                     Edit
@@ -194,7 +189,6 @@ export default function UsersPage() {
             ))}
           </div>
 
-          {/* Pagination */}
           <div className="mt-6 flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
               Showing {(page - 1) * 10 + 1} to{' '}

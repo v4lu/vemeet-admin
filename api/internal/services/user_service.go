@@ -12,7 +12,7 @@ type UserService struct {
 type UserServiceInterface interface {
 	GetUserByUsername(username string) (*data.User, error)
 	GetUserById(id int64) (*data.User, error)
-	GetUsers(page int64, limit int64, sort string, order string) (*data.UserPagination, error)
+	GetUsers(page int64, limit int64, sort, order, search string) (*data.UserPagination, error)
 }
 
 func NewUserService(userRepo data.UserRepositoryInterface) UserServiceInterface {
@@ -37,8 +37,8 @@ func (s *UserService) GetUserById(id int64) (*data.User, error) {
 	return user, nil
 }
 
-func (s *UserService) GetUsers(page int64, limit int64, sort string, order string) (*data.UserPagination, error) {
-	users, err := s.userRepo.FindAll(page, limit, sort, order)
+func (s *UserService) GetUsers(page int64, limit int64, sort, order, search string) (*data.UserPagination, error) {
+	users, err := s.userRepo.FindAll(page, limit, sort, order, search)
 	if err != nil {
 		return nil, errors.NewInternalError("failed to get users")
 	}

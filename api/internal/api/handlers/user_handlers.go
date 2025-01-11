@@ -61,8 +61,9 @@ func (h *UserHandler) GetUsers(c *gin.Context) {
 
 	sort := c.DefaultQuery("sort", "id")
 	order := c.DefaultQuery("order", "asc")
+	search := c.DefaultQuery("search", "")
 
-	users, err := h.userService.GetUsers(page, limit, sort, order)
+	users, err := h.userService.GetUsers(page, limit, sort, order, search)
 	if err != nil {
 		errors.HandleError(c, err)
 		return

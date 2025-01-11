@@ -3,6 +3,8 @@ package data
 import (
 	"context"
 	"database/sql"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -50,7 +52,7 @@ type UserPagination struct {
 type UserRepositoryInterface interface {
 	FindByUsername(username string) (*User, error)
 	FindById(id int64) (*User, error)
-	FindAll(page int64, limit int64, sort string, order string) (*UserPagination, error)
+	FindAll(page int64, limit int64, sort, order, search string) (*UserPagination, error)
 }
 
 type UserRepositoryImpl struct {
@@ -139,7 +141,7 @@ func (r *UserRepositoryImpl) FindById(id int64) (*User, error) {
 	return user, nil
 }
 
-func (r *UserRepositoryImpl) FindAll(page int64, limit int64, sort string, order string) (*UserPagination, error) {
+func (r *UserRepositoryImpl) FindAll(page int64, limit int64, sort, order, search string) (*UserPagination, error) {
 	allowedSortFields := map[string]bool{
 		"id":         true,
 		"username":   true,
@@ -158,15 +160,33 @@ func (r *UserRepositoryImpl) FindAll(page int64, limit int64, sort string, order
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	// Base query parts
+	whereClause := ""
+	queryParams := make([]interface{}, 0)
+	paramCount := 1
+
+	// Add search condition if search parameter is provided
+	if search != "" {
+		whereClause = `
+            WHERE (
+                LOWER(username) LIKE $1 OR
+                LOWER(COALESCE(name, '')) LIKE $1
+            )`
+		queryParams = append(queryParams, "%"+strings.ToLower(search)+"%")
+		paramCount++
+	}
+
+	// Count total with search condition
 	var total int64
-	countQuery := `SELECT COUNT(*) FROM users`
-	err := r.db.QueryRowContext(ctx, countQuery).Scan(&total)
+	countQuery := `SELECT COUNT(*) FROM users ` + whereClause
+	err := r.db.QueryRowContext(ctx, countQuery, queryParams...).Scan(&total)
 	if err != nil {
 		return nil, err
 	}
 
 	totalPages := (total + limit - 1) / limit
 
+	// Main query with search condition
 	query := `
         SELECT id, username, birthday, aws_cognito_id, created_at, verified, is_private,
                inbox_locked, swiper_mode, COALESCE(name, ''), COALESCE(gender, ''),
@@ -174,10 +194,14 @@ func (r *UserRepositoryImpl) FindAll(page int64, limit int64, sort string, order
                COALESCE(country_lat, 0), COALESCE(country_lng, 0), COALESCE(city_name, ''),
                COALESCE(city_lat, 0), COALESCE(city_lng, 0), COALESCE(bio, ''), COALESCE(profile_image_id, 0)
         FROM users
+        ` + whereClause + `
         ORDER BY ` + sort + ` ` + order + `
-        LIMIT $1 OFFSET $2`
+        LIMIT $` + strconv.Itoa(paramCount) + ` OFFSET $` + strconv.Itoa(paramCount+1)
 
-	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	// Add limit and offset to query params
+	queryParams = append(queryParams, limit, offset)
+
+	rows, err := r.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}

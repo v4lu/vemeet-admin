@@ -24,6 +24,7 @@ type User struct {
 	IsPrivate      bool    `json:"is_private"`
 	InboxLocked    bool    `json:"inbox_locked"`
 	SwiperMode     bool    `json:"swiper_mode"`
+	Blocked        bool    `json:"blocked"`
 	Name           string  `json:"name,omitempty"`
 	Gender         string  `json:"gender,omitempty"`
 	CountryName    string  `json:"country_name,omitempty"`
@@ -53,6 +54,7 @@ type UserRepositoryInterface interface {
 	FindByUsername(username string) (*User, error)
 	FindById(id int64) (*User, error)
 	FindAll(page int64, limit int64, sort, order, search string) (*UserPagination, error)
+	ToggleUserBlock(id int64) (bool, error)
 }
 
 type UserRepositoryImpl struct {
@@ -65,7 +67,7 @@ func NewUserRepository(db *sql.DB) UserRepositoryInterface {
 
 func (r *UserRepositoryImpl) FindByUsername(username string) (*User, error) {
 	query := `SELECT id, username, birthday, aws_cognito_id, created_at, verified, is_private,
-			  inbox_locked, swiper_mode, COALESCE(name, ''), COALESCE(gender, ''),
+			  inbox_locked, swiper_mode, blocked, COALESCE(name, ''), COALESCE(gender, ''),
 			  COALESCE(country_name, ''), COALESCE(country_flag, ''), COALESCE(country_iso_code, ''),
 			  COALESCE(country_lat, 0), COALESCE(country_lng, 0), COALESCE(city_name, ''),
 			  COALESCE(city_lat, 0), COALESCE(city_lng, 0), COALESCE(bio, ''), COALESCE(profile_image_id, 0)
@@ -78,7 +80,7 @@ func (r *UserRepositoryImpl) FindByUsername(username string) (*User, error) {
 
 	user := &User{}
 	err := row.Scan(&user.ID, &user.Username, &user.Birthday, &user.AwsCognitoId, &user.CreatedAt, &user.Verified,
-		&user.IsPrivate, &user.InboxLocked, &user.SwiperMode, &user.Name, &user.Gender, &user.CountryName,
+		&user.IsPrivate, &user.InboxLocked, &user.SwiperMode, &user.Blocked, &user.Name, &user.Gender, &user.CountryName,
 		&user.CountryFlag, &user.CountryIsoCode, &user.CountryLat, &user.CountryLng, &user.CityName,
 		&user.CityLat, &user.CityLng, &user.Bio, &user.ProfileImageID)
 
@@ -104,7 +106,7 @@ func (r *UserRepositoryImpl) FindByUsername(username string) (*User, error) {
 
 func (r *UserRepositoryImpl) FindById(id int64) (*User, error) {
 	query := `SELECT id, username, birthday, aws_cognito_id, created_at, verified, is_private,
-			  inbox_locked, swiper_mode, COALESCE(name, ''), COALESCE(gender, ''),
+			  inbox_locked, swiper_mode, blocked, COALESCE(name, ''), COALESCE(gender, ''),
 			  COALESCE(country_name, ''), COALESCE(country_flag, ''), COALESCE(country_iso_code, ''),
 			  COALESCE(country_lat, 0), COALESCE(country_lng, 0), COALESCE(city_name, ''),
 			  COALESCE(city_lat, 0), COALESCE(city_lng, 0), COALESCE(bio, ''), COALESCE(profile_image_id, 0)
@@ -117,7 +119,7 @@ func (r *UserRepositoryImpl) FindById(id int64) (*User, error) {
 
 	user := &User{}
 	err := row.Scan(&user.ID, &user.Username, &user.Birthday, &user.AwsCognitoId, &user.CreatedAt, &user.Verified,
-		&user.IsPrivate, &user.InboxLocked, &user.SwiperMode, &user.Name, &user.Gender, &user.CountryName,
+		&user.IsPrivate, &user.InboxLocked, &user.SwiperMode, &user.Blocked, &user.Name, &user.Gender, &user.CountryName,
 		&user.CountryFlag, &user.CountryIsoCode, &user.CountryLat, &user.CountryLng, &user.CityName,
 		&user.CityLat, &user.CityLng, &user.Bio, &user.ProfileImageID)
 
@@ -160,12 +162,10 @@ func (r *UserRepositoryImpl) FindAll(page int64, limit int64, sort, order, searc
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Base query parts
 	whereClause := ""
 	queryParams := make([]interface{}, 0)
 	paramCount := 1
 
-	// Add search condition if search parameter is provided
 	if search != "" {
 		whereClause = `
             WHERE (
@@ -176,7 +176,6 @@ func (r *UserRepositoryImpl) FindAll(page int64, limit int64, sort, order, searc
 		paramCount++
 	}
 
-	// Count total with search condition
 	var total int64
 	countQuery := `SELECT COUNT(*) FROM users ` + whereClause
 	err := r.db.QueryRowContext(ctx, countQuery, queryParams...).Scan(&total)
@@ -186,10 +185,9 @@ func (r *UserRepositoryImpl) FindAll(page int64, limit int64, sort, order, searc
 
 	totalPages := (total + limit - 1) / limit
 
-	// Main query with search condition
 	query := `
         SELECT id, username, birthday, aws_cognito_id, created_at, verified, is_private,
-               inbox_locked, swiper_mode, COALESCE(name, ''), COALESCE(gender, ''),
+               inbox_locked, swiper_mode, blocked, COALESCE(name, ''), COALESCE(gender, ''),
                COALESCE(country_name, ''), COALESCE(country_flag, ''), COALESCE(country_iso_code, ''),
                COALESCE(country_lat, 0), COALESCE(country_lng, 0), COALESCE(city_name, ''),
                COALESCE(city_lat, 0), COALESCE(city_lng, 0), COALESCE(bio, ''), COALESCE(profile_image_id, 0)
@@ -198,7 +196,6 @@ func (r *UserRepositoryImpl) FindAll(page int64, limit int64, sort, order, searc
         ORDER BY ` + sort + ` ` + order + `
         LIMIT $` + strconv.Itoa(paramCount) + ` OFFSET $` + strconv.Itoa(paramCount+1)
 
-	// Add limit and offset to query params
 	queryParams = append(queryParams, limit, offset)
 
 	rows, err := r.db.QueryContext(ctx, query, queryParams...)
@@ -212,7 +209,7 @@ func (r *UserRepositoryImpl) FindAll(page int64, limit int64, sort, order, searc
 		user := &User{}
 		err := rows.Scan(
 			&user.ID, &user.Username, &user.Birthday, &user.AwsCognitoId, &user.CreatedAt,
-			&user.Verified, &user.IsPrivate, &user.InboxLocked, &user.SwiperMode,
+			&user.Verified, &user.IsPrivate, &user.Blocked, &user.InboxLocked, &user.SwiperMode,
 			&user.Name, &user.Gender, &user.CountryName, &user.CountryFlag,
 			&user.CountryIsoCode, &user.CountryLat, &user.CountryLng,
 			&user.CityName, &user.CityLat, &user.CityLng, &user.Bio,
@@ -252,4 +249,18 @@ func (r *UserRepositoryImpl) FindAll(page int64, limit int64, sort, order, searc
 		Sort:       sort,
 		Order:      order,
 	}, nil
+}
+
+func (r *UserRepositoryImpl) ToggleUserBlock(id int64) (bool, error) {
+	query := `UPDATE users SET blocked = NOT blocked WHERE id = $1`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }

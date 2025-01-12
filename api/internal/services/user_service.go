@@ -13,6 +13,7 @@ type UserServiceInterface interface {
 	GetUserByUsername(username string) (*data.User, error)
 	GetUserById(id int64) (*data.User, error)
 	GetUsers(page int64, limit int64, sort, order, search string) (*data.UserPagination, error)
+	ToggleBlockUser(id int64) (bool, error)
 }
 
 func NewUserService(userRepo data.UserRepositoryInterface) UserServiceInterface {
@@ -44,4 +45,13 @@ func (s *UserService) GetUsers(page int64, limit int64, sort, order, search stri
 	}
 
 	return users, nil
+}
+
+func (s *UserService) ToggleBlockUser(id int64) (bool, error) {
+	isBlocked, err := s.userRepo.ToggleUserBlock(id)
+	if err != nil {
+		return false, errors.NewInternalError("failed to toggle block user")
+	}
+
+	return isBlocked, nil
 }

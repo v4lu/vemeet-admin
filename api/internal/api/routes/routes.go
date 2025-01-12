@@ -13,11 +13,12 @@ import (
 )
 
 type Router struct {
-	adminHandler *handlers.AdminHandler
-	authHandler  *handlers.AuthHandler
-	userHandler  *handlers.UserHandler
-	tokenManager *auth.TokenManager
-	router       *gin.Engine
+	adminHandler   *handlers.AdminHandler
+	authHandler    *handlers.AuthHandler
+	userHandler    *handlers.UserHandler
+	blockedHandler *handlers.BlockedHandler
+	tokenManager   *auth.TokenManager
+	router         *gin.Engine
 }
 
 func NewRouter(
@@ -25,9 +26,17 @@ func NewRouter(
 	adminHandler *handlers.AdminHandler,
 	authHandler *handlers.AuthHandler,
 	userHandler *handlers.UserHandler,
+	blockedHandler *handlers.BlockedHandler,
 	tokenManager *auth.TokenManager,
 ) *Router {
-	return &Router{adminHandler, authHandler, userHandler, tokenManager, r}
+	return &Router{
+		adminHandler,
+		authHandler,
+		userHandler,
+		blockedHandler,
+		tokenManager,
+		r,
+	}
 }
 
 func (r *Router) Router() {
@@ -48,4 +57,5 @@ func (r *Router) Router() {
 	adminRoutes(r.router, r.adminHandler)
 	authRoutes(r.router, r.authHandler)
 	userRoutes(r.router, r.userHandler)
+	blockedRoutes(r.router, r.blockedHandler)
 }

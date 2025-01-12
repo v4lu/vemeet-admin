@@ -56,18 +56,21 @@ func main() {
 
 	adminData := data.NewAdminRepository(db)
 	userData := data.NewUserRepository(db)
+	blockedData := data.NewBlockedRepository(db)
 
 	tokenManager := auth.NewTokenManager(cfg.PasetoSecret)
 	adminService := services.NewAdminService(adminData)
 
 	authService := services.NewAuthService(adminData, *tokenManager)
 	userService := services.NewUserService(userData)
+	blockedService := services.NewBlockedService(blockedData)
 
 	adminHandler := handlers.NewAdminHandler(adminService)
 	authHandler := handlers.NewAuthHandler(authService)
 	userHandler := handlers.NewUserHandler(userService)
+	blockedHandler := handlers.NewBlockedHandler(blockedService, userService)
 
-	router := routes.NewRouter(r, adminHandler, authHandler, userHandler, tokenManager)
+	router := routes.NewRouter(r, adminHandler, authHandler, userHandler, blockedHandler, tokenManager)
 
 	router.Router()
 
